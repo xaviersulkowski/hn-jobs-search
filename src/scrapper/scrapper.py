@@ -3,9 +3,12 @@ import logging
 import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
 
-from src.models.job_model import JobListing
+from src.job_parsers.ollama_job_parser import OllamaJobParser
+from src.models.job_model import RawJobListing
 
 HN_DOMAIN = "https://hnhiring.com"
+
+parser = OllamaJobParser()
 
 def scrap_hn_job_listing(page: str):
     r = requests.get(url=f"{HN_DOMAIN}/{page}")
@@ -21,10 +24,10 @@ def scrap_hn_job_listing(page: str):
             parse_job(li)
         )
 
-    print(job_listing)
+    print(parser.parse(job_listing[0]))
 
 
-def parse_job(job: Tag) -> JobListing:
+def parse_job(job: Tag) -> RawJobListing:
     body = job.find("div", class_="body")
 
     title = ""
@@ -38,7 +41,7 @@ def parse_job(job: Tag) -> JobListing:
         p.get_text(strip=True) for p in body.find_all("p")
     )
 
-    return JobListing(
+    return RawJobListing(
         title=title,
         description=description,
     )
