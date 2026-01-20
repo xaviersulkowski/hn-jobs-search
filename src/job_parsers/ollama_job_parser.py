@@ -3,7 +3,7 @@ from inspect import cleandoc
 
 from ollama import Client
 
-from src.models.job_model import JobListing, RawJobListing
+from src.models.job_model import ProcessedJobListing, RawJobListing
 
 
 class OllamaJobParser:
@@ -24,7 +24,7 @@ class OllamaJobParser:
         if len(self.client.list().models) == 0:
             raise RuntimeError(f"No Ollama models found")
 
-    def parse(self, job: RawJobListing) -> JobListing:
+    def parse(self, job: RawJobListing) -> ProcessedJobListing:
         system_prompt = cleandoc("""
             You are an information extraction system.
             You extract structured data and return ONLY valid JSON.
@@ -43,6 +43,7 @@ class OllamaJobParser:
             - Industry can be understood business sector.
             - If a role is remote, but any location information is given note this. 
             - You will need to infer industry.
+            - Look for benefits/perks 
 
             JSON schema:
             {{
@@ -54,7 +55,8 @@ class OllamaJobParser:
               "salary": string | null,
               "job_location": string | null,
               "is_remote": boolean | null,
-              "technologies": string[] | null
+              "technologies": string[] | null,
+              "benefits": string[] | null,"
             }}
 
             Job title:
@@ -79,12 +81,12 @@ class OllamaJobParser:
             chat_response
                 .message
                 .content
-                .replace("\_", "_")
+                .replace("\\_", "_")
         )
 
         chat_response = json.loads(normalized_response)
 
-        return JobListing(
+        return ProcessedJobListing(
             id = job.job_id,
             title = job.title,
             description = chat_response['description'],
