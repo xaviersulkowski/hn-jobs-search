@@ -6,7 +6,7 @@ import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
 from sqlmodel import Session
 
-from src.db.crud import insert_raw_job_listing
+from src.db.crud import insert_raw_job_listing, select_all_raw_job_listing_ids
 from src.db.engine import get_db, init_db
 from src.job_parsers.ollama_job_parser import OllamaJobParser
 from src.models.job_model import RawJobListing
@@ -21,22 +21,29 @@ def scrap_hn_job_listing(
     page: str,
     session: Session = get_db().__next__(),
 ):
+    existing_raw_job_listings = select_all_raw_job_listing_ids(session=session)
+
     r = requests.get(url=f"{HN_DOMAIN}/{page}")
     if r.status_code != 200:
         logging.error(f"{r.text}")
         raise Exception(f"Error scraping {page}")
 
-    job_listing: list[RawJobListing] = []
+    job_listing_to_add: list[RawJobListing] = []
     soup = BeautifulSoup(r.content, "html.parser")
     jobs = soup.find("ul", class_="jobs")
     for li in jobs.find_all("li"):
-        job_listing.append(
-            parse_job(li)
-        )
+        job = parse_job(li)
+
+        if job.job_id not in existing_raw_job_listings:
+            job_listing_to_add.append(
+                job
+            )
+
+    logging.info(f"Adding {len(job_listing_to_add)} new jobs")
 
     insert_raw_job_listing(
         session=session,
-        job_listing=job_listing,
+        job_listing=job_listing_to_add,
     )
 
     # save raw to db
@@ -79,4 +86,5 @@ def parse_job(job: Tag) -> RawJobListing:
     )
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     scrap_hn_job_listing("january-2026")
