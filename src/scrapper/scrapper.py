@@ -3,23 +3,24 @@ from datetime import datetime, UTC
 import dateparser
 
 import requests
+import tqdm
 from bs4 import BeautifulSoup, NavigableString, Tag
 from sqlmodel import Session
 
-from src.db.crud import insert_raw_job_listing, select_all_raw_job_listing_ids
+from src.db.crud import upsert_job_listing, select_all_raw_job_listing_ids, select_job_listing_to_be_processed_by_llm
 from src.db.engine import get_db, init_db
 from src.job_parsers.ollama_job_parser import OllamaJobParser
-from src.models.job_model import RawJobListing
+from src.models.job_model import RawJobListing, ProcessedJobListing, RawJob
 
 HN_DOMAIN = "https://hnhiring.com"
 
-parser = OllamaJobParser()
+llm_parser = OllamaJobParser()
 
 init_db()
 
 def scrap_hn_job_listing(
     page: str,
-    session: Session = get_db().__next__(),
+    session: Session,
 ):
     existing_raw_job_listings = select_all_raw_job_listing_ids(session=session)
 
@@ -36,23 +37,47 @@ def scrap_hn_job_listing(
 
         if job.job_id not in existing_raw_job_listings:
             job_listing_to_add.append(
-                job
+                RawJobListing.of(job)
             )
 
-    logging.info(f"Adding {len(job_listing_to_add)} new jobs")
-
-    insert_raw_job_listing(
-        session=session,
-        job_listing=job_listing_to_add,
-    )
-
-    # save raw to db
-    # parse with LLM
-    # save to db
-
+    if len(job_listing_to_add) > 0:
+        logging.info(f"Adding {len(job_listing_to_add)} new jobs")
+        upsert_job_listing(
+            session=session,
+            model=RawJobListing,
+            job_listing=job_listing_to_add,
+        )
+    else:
+        logging.info("No new jobs")
 
 
-def parse_job(job: Tag) -> RawJobListing:
+def process_raw_job_listing(
+    session: Session,
+):
+    parsed = []
+
+    for cnt, job in tqdm.tqdm(enumerate(select_job_listing_to_be_processed_by_llm(session=session))):
+        try:
+            parsed_job = llm_parser.parse(job=job)
+            if parsed_job:
+                parsed.append(
+                    parsed_job
+                )
+        except Exception as e:
+            logging.error(f"Error parsing {job.job_id}: {e}. Continuing...")
+            continue
+
+        if cnt % 10 == 0:
+            logging.info(f"Processed {cnt} jobs... Saving partial results.")
+            upsert_job_listing(
+                session=session,
+                model=ProcessedJobListing,
+                job_listing=parsed,
+            )
+            parsed = []
+
+
+def parse_job(job: Tag) -> RawJob:
     body = job.find("div", class_="body")
 
     title = ""
@@ -79,7 +104,7 @@ def parse_job(job: Tag) -> RawJobListing:
             }
         )
 
-    return RawJobListing(
+    return RawJob(
         title=title,
         description=description,
         posted_date=posted_date,
@@ -87,4 +112,11 @@ def parse_job(job: Tag) -> RawJobListing:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    scrap_hn_job_listing("january-2026")
+    session = get_db().__next__()
+    scrap_hn_job_listing(
+        "january-2026",
+        session
+    )
+    process_raw_job_listing(
+        session
+    )

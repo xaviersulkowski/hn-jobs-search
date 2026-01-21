@@ -1,4 +1,5 @@
 import json
+import logging
 from inspect import cleandoc
 
 from ollama import Client
@@ -24,7 +25,7 @@ class OllamaJobParser:
         if len(self.client.list().models) == 0:
             raise RuntimeError(f"No Ollama models found")
 
-    def parse(self, job: RawJobListing) -> ProcessedJobListing:
+    def parse(self, job: RawJobListing) -> ProcessedJobListing | None:
         system_prompt = cleandoc("""
             You are an information extraction system.
             You extract structured data and return ONLY valid JSON.
@@ -84,17 +85,22 @@ class OllamaJobParser:
                 .replace("\\_", "_")
         )
 
-        chat_response = json.loads(normalized_response)
+        try:
+            chat_response = json.loads(normalized_response)
 
-        return ProcessedJobListing(
-            id = job.job_id,
-            title = job.title,
-            description = chat_response['description'],
-            job_url = chat_response['job_url'],
-            company_url = chat_response['company_url'],
-            technologies = chat_response['technologies'],
-            location = chat_response['job_location'],
-            industry = chat_response['industry'],
-            is_remote = chat_response['is_remote'],
-            salary = chat_response['salary'],
-        )
+            return ProcessedJobListing(
+                job_id=job.job_id,
+                title=job.title,
+                description=chat_response['description'],
+                job_url=chat_response['job_url'],
+                company_url=chat_response['company_url'],
+                technologies=chat_response['technologies'],
+                location=chat_response['job_location'],
+                industry=chat_response['industry'],
+                is_remote=chat_response['is_remote'],
+                salary=chat_response['salary'],
+            )
+        except Exception as e:
+            logging.info(f"Chat response: {chat_response}")
+            logging.info(f"Could not parse job {job.job_id}: {e}")
+            return None
