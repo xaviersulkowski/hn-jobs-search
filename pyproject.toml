@@ -12,9 +12,13 @@ dependencies = [
     "requests>=2.32.5",
     "sqlmodel>=0.0.31",
     "tqdm>=4.67.1",
+    "types-dateparser>=1.2.2.20250809",
+    "types-requests>=2.32.4.20260107",
+    "types-tqdm>=4.67.0.20250809",
 ]
 
 [dependency-groups]
 dev = [
     "black>=26.1.0",
+    "mypy>=1.19.1",
 ]
