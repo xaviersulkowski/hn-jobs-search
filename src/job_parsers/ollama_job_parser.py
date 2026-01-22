@@ -1,8 +1,9 @@
 import json
 import logging
 from inspect import cleandoc
+from typing import Any
 
-from ollama import Client
+from ollama import Client, ChatResponse
 
 from src.models.job_model import ProcessedJobs, RawJob
 
@@ -24,6 +25,14 @@ class OllamaJobParser:
 
         if len(self.client.list().models) == 0:
             raise RuntimeError(f"No Ollama models found")
+
+    @staticmethod
+    def _parse_json(chat_response: ChatResponse) -> dict[str, Any]:
+        normalized_response = chat_response.message.content.replace("\\_", "_")
+        if normalized_response.startswith("```json"):
+            normalized_response = normalized_response.replace("```json", "")
+            normalized_response = normalized_response.replace("```", "")
+        return json.loads(normalized_response)
 
     def parse(self, job: RawJob) -> ProcessedJobs | None:
         system_prompt = cleandoc("""
@@ -78,10 +87,8 @@ class OllamaJobParser:
             },
         )
 
-        normalized_response = chat_response.message.content.replace("\\_", "_")
-
         try:
-            chat_response = json.loads(normalized_response)
+            chat_response = self._parse_json(chat_response)
 
             return ProcessedJobs(
                 job_id=job.job_id,
