@@ -4,7 +4,7 @@ from inspect import cleandoc
 
 from ollama import Client
 
-from src.models.job_model import ProcessedJobListing, RawJobListing
+from src.models.job_model import ProcessedJobs, RawJob
 
 
 class OllamaJobParser:
@@ -25,7 +25,7 @@ class OllamaJobParser:
         if len(self.client.list().models) == 0:
             raise RuntimeError(f"No Ollama models found")
 
-    def parse(self, job: RawJobListing) -> ProcessedJobListing | None:
+    def parse(self, job: RawJob) -> ProcessedJobs | None:
         system_prompt = cleandoc("""
             You are an information extraction system.
             You extract structured data and return ONLY valid JSON.
@@ -88,9 +88,10 @@ class OllamaJobParser:
         try:
             chat_response = json.loads(normalized_response)
 
-            return ProcessedJobListing(
+            return ProcessedJobs(
                 job_id=job.job_id,
                 title=job.title,
+                posted_date=job.posted_date,
                 description=chat_response['description'],
                 job_url=chat_response['job_url'],
                 company_url=chat_response['company_url'],

@@ -7,7 +7,7 @@ from sqlalchemy import Column
 from sqlalchemy.dialects.sqlite.json import JSON
 from sqlmodel import SQLModel, Field
 
-class RawJob(BaseModel):
+class HNJobPosting(BaseModel):
     title: str
     description: str
     posted_date: date | None
@@ -32,7 +32,7 @@ class JobBase(SQLModel):
     posted_date: date | None
 
     @classmethod
-    def of(cls, raw: RawJob):
+    def of(cls, raw: HNJobPosting):
         return JobBase(
             job_id = raw.job_id,
             title = raw.title,
@@ -40,16 +40,16 @@ class JobBase(SQLModel):
             posted_date = raw.posted_date,
         )
 
-class RawJobListing(JobBase, table=True):
+class RawJob(JobBase, table=True):
 
-    __tablename__ = "raw_job_listing"
+    __tablename__ = "raw_jobs"
 
     job_id: str = Field(primary_key=True, nullable=False)
 
 
-class ProcessedJobListing(JobBase, table=True):
+class ProcessedJobs(JobBase, table=True):
 
-    __tablename__ = "processed_job_listing"
+    __tablename__ = "processed_jobs"
 
     job_id: str = Field(primary_key=True, nullable=False)
 

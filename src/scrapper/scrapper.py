@@ -7,10 +7,10 @@ import tqdm
 from bs4 import BeautifulSoup, NavigableString, Tag
 from sqlmodel import Session
 
-from src.db.crud import upsert_job_listing, select_all_raw_job_listing_ids, select_job_listing_to_be_processed_by_llm
+from src.db.crud import upsert_jobs, select_not_processed_jobs
 from src.db.engine import get_db, init_db
 from src.job_parsers.ollama_job_parser import OllamaJobParser
-from src.models.job_model import RawJobListing, ProcessedJobListing, RawJob
+from src.models.job_model import RawJob, ProcessedJobs, HNJobPosting
 
 HN_DOMAIN = "https://hnhiring.com"
 
@@ -22,30 +22,27 @@ def scrap_hn_job_listing(
     page: str,
     session: Session,
 ):
-    existing_raw_job_listings = select_all_raw_job_listing_ids(session=session)
 
     r = requests.get(url=f"{HN_DOMAIN}/{page}")
     if r.status_code != 200:
         logging.error(f"{r.text}")
         raise Exception(f"Error scraping {page}")
 
-    job_listing_to_add: list[RawJobListing] = []
+    jobs_to_add: list[RawJob] = []
     soup = BeautifulSoup(r.content, "html.parser")
     jobs = soup.find("ul", class_="jobs")
     for li in jobs.find_all("li"):
         job = parse_job(li)
+        jobs_to_add.append(
+            RawJob.of(job)
+        )
 
-        if job.job_id not in existing_raw_job_listings:
-            job_listing_to_add.append(
-                RawJobListing.of(job)
-            )
-
-    if len(job_listing_to_add) > 0:
-        logging.info(f"Adding {len(job_listing_to_add)} new jobs")
-        upsert_job_listing(
+    if len(jobs_to_add) > 0:
+        logging.info(f"Adding {len(jobs_to_add)} new jobs")
+        upsert_jobs(
             session=session,
-            model=RawJobListing,
-            job_listing=job_listing_to_add,
+            model=RawJob,
+            job_listing=jobs_to_add,
         )
     else:
         logging.info("No new jobs")
@@ -56,7 +53,7 @@ def process_raw_job_listing(
 ):
     parsed = []
 
-    for cnt, job in tqdm.tqdm(enumerate(select_job_listing_to_be_processed_by_llm(session=session))):
+    for cnt, job in tqdm.tqdm(enumerate(select_not_processed_jobs(session=session))):
         try:
             parsed_job = llm_parser.parse(job=job)
             if parsed_job:
@@ -69,15 +66,15 @@ def process_raw_job_listing(
 
         if cnt % 10 == 0:
             logging.info(f"Processed {cnt} jobs... Saving partial results.")
-            upsert_job_listing(
+            upsert_jobs(
                 session=session,
-                model=ProcessedJobListing,
+                model=ProcessedJobs,
                 job_listing=parsed,
             )
             parsed = []
 
 
-def parse_job(job: Tag) -> RawJob:
+def parse_job(job: Tag) -> HNJobPosting:
     body = job.find("div", class_="body")
 
     title = ""
@@ -104,7 +101,7 @@ def parse_job(job: Tag) -> RawJob:
             }
         )
 
-    return RawJob(
+    return HNJobPosting(
         title=title,
         description=description,
         posted_date=posted_date,

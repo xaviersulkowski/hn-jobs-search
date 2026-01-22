@@ -3,7 +3,7 @@ import os
 from typing import Generator
 from sqlmodel import create_engine, SQLModel, Session
 
-from src.models.job_model import RawJobListing, ProcessedJobListing
+from src.models.job_model import RawJob, ProcessedJobs
 
 db_path = os.path.join(os.path.dirname(__file__), "..", "..", "db")
 
