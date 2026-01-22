@@ -32,7 +32,7 @@ class JobBase(SQLModel):
 
     @classmethod
     def of(cls, raw: HNJobPosting):
-        return JobBase(
+        return cls(
             job_id=raw.job_id,
             title=raw.title,
             description=raw.description,
