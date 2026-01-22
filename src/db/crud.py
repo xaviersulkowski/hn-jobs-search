@@ -1,13 +1,14 @@
+import json
 import logging
 from collections.abc import Sequence
 from typing import TypeVar
 
-from sqlmodel import Session, select
+from sqlmodel import Session, select, SQLModel
 from sqlalchemy.dialects.sqlite import insert
 
 from src.models.job_model import RawJob, ProcessedJobs
 
-T = TypeVar("T", RawJob, ProcessedJobs)
+T = TypeVar("T", bound=SQLModel)
 
 
 def upsert_jobs(
@@ -17,10 +18,21 @@ def upsert_jobs(
     job_listing: list[T],
     force: bool = False,
 ):
+    def _serialize_for_insert(obj: T):
+        data = {}
+        for column in obj.__table__.columns:
+            value = getattr(obj, column.name)
+
+            if isinstance(value, list):
+                value = json.dumps(value)
+
+            data[column.name] = value
+        return data
+
     if not job_listing:
         return
 
-    values = [obj.model_dump() for obj in job_listing]
+    values = [_serialize_for_insert(obj) for obj in job_listing]
     pk_columns = ["job_id"]
 
     stmt = insert(model).values(values)
