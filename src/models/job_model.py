@@ -7,6 +7,7 @@ from sqlalchemy import Column
 from sqlalchemy.dialects.sqlite.json import JSON
 from sqlmodel import SQLModel, Field
 
+
 class HNJobPosting(BaseModel):
     title: str
     description: str
@@ -20,9 +21,7 @@ class HNJobPosting(BaseModel):
         else:
             str_date = ""
 
-        return hashlib.sha256(
-            (self.title + str_date).encode("utf-8")
-        ).hexdigest()
+        return hashlib.sha256((self.title + str_date).encode("utf-8")).hexdigest()
 
 
 class JobBase(SQLModel):
@@ -34,11 +33,12 @@ class JobBase(SQLModel):
     @classmethod
     def of(cls, raw: HNJobPosting):
         return JobBase(
-            job_id = raw.job_id,
-            title = raw.title,
-            description = raw.description,
-            posted_date = raw.posted_date,
+            job_id=raw.job_id,
+            title=raw.title,
+            description=raw.description,
+            posted_date=raw.posted_date,
         )
+
 
 class RawJob(JobBase, table=True):
 
@@ -55,10 +55,7 @@ class ProcessedJobs(JobBase, table=True):
 
     job_url: str | None = Field(default=None)
     company_url: str | None = Field(default=None)
-    technologies: list[str] | None = Field(
-        default=None,
-        sa_column=Column(JSON)
-    )
+    technologies: list[str] | None = Field(default=None, sa_column=Column(JSON))
     location: str | None = Field(default=None)
     industry: str | None = Field(default=None)
     salary: str | None = Field(default=None)

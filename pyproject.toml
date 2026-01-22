@@ -13,3 +13,8 @@ dependencies = [
     "sqlmodel>=0.0.31",
     "tqdm>=4.67.1",
 ]
+
+[dependency-groups]
+dev = [
+    "black>=26.1.0",
+]

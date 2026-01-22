@@ -9,6 +9,7 @@ from src.models.job_model import RawJob, ProcessedJobs
 
 T = TypeVar("T", RawJob, ProcessedJobs)
 
+
 def upsert_jobs(
     *,
     session: Session,
@@ -20,7 +21,7 @@ def upsert_jobs(
         return
 
     values = [obj.model_dump() for obj in job_listing]
-    pk_columns =  ["job_id"]
+    pk_columns = ["job_id"]
 
     stmt = insert(model).values(values)
 
@@ -50,15 +51,8 @@ def select_not_processed_jobs(
     *,
     session: Session,
 ) -> Sequence[RawJob]:
-    return (
-        session.exec(
-            select(RawJob)
-            .outerjoin(
-                ProcessedJobs,
-                RawJob.job_id == ProcessedJobs.job_id
-            )
-            .where(
-                ProcessedJobs.job_id == None # noqa: E711
-            )
-        ).fetchall()
-    )
+    return session.exec(
+        select(RawJob)
+        .outerjoin(ProcessedJobs, RawJob.job_id == ProcessedJobs.job_id)
+        .where(ProcessedJobs.job_id == None)  # noqa: E711
+    ).fetchall()

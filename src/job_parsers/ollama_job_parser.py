@@ -75,15 +75,10 @@ class OllamaJobParser:
             ],
             options={
                 "temperature": 0.0,
-            }
+            },
         )
 
-        normalized_response = (
-            chat_response
-                .message
-                .content
-                .replace("\\_", "_")
-        )
+        normalized_response = chat_response.message.content.replace("\\_", "_")
 
         try:
             chat_response = json.loads(normalized_response)
@@ -92,14 +87,14 @@ class OllamaJobParser:
                 job_id=job.job_id,
                 title=job.title,
                 posted_date=job.posted_date,
-                description=chat_response['description'],
-                job_url=chat_response['job_url'],
-                company_url=chat_response['company_url'],
-                technologies=chat_response['technologies'],
-                location=chat_response['job_location'],
-                industry=chat_response['industry'],
-                is_remote=chat_response['is_remote'],
-                salary=chat_response['salary'],
+                description=chat_response["description"],
+                job_url=chat_response["job_url"],
+                company_url=chat_response["company_url"],
+                technologies=chat_response["technologies"],
+                location=chat_response["job_location"],
+                industry=chat_response["industry"],
+                is_remote=chat_response["is_remote"],
+                salary=chat_response["salary"],
             )
         except Exception as e:
             logging.info(f"Chat response: {chat_response}")
