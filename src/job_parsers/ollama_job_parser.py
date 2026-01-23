@@ -32,7 +32,17 @@ class OllamaJobParser:
         if normalized_response.startswith("```json"):
             normalized_response = normalized_response.replace("```json", "")
             normalized_response = normalized_response.replace("```", "")
-        return json.loads(normalized_response)
+
+        response = json.loads(normalized_response)
+
+        if type(response["is_remote"]) != bool:
+            if type(response["is_remote"]) == str and response["is_remote"].lower() == "hybrid":
+                response["is_remote"] = True
+            else:
+                logging.info(f"\"is_remote\" is not boolean, falling back to \"False\": {response["is_remote"]}")
+                response["is_remote"] = False
+
+        return response
 
     def parse(self, job: RawJob) -> ProcessedJobs | None:
         system_prompt = cleandoc("""
